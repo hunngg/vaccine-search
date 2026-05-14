@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>自費疫苗查詢系統</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    :root {
+      --bg:        #f7f3ec;
+      --bg2:       #efe9de;
+      --surface:   #ffffff;
+      --surface2:  #faf7f2;
+      --border:    #ddd5c5;
+      --border2:   #c9c0b0;
+      --green:     #5a8a6a;
+      --green-lt:  #e8f2eb;
+      --green-md:  #b8d4be;
+      --amber:     #c47c2b;
+      --amber-lt:  #fdf0e0;
+      --text:      #3a3228;
+      --text2:     #6b5f52;
+      --text3:     #9e9186;
+      --mark-bg:   #f5d87a;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      min-height: 100vh;
+      font-family: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', serif;
+      color: var(--text);
+    }
+    mark {
+      background: var(--mark-bg);
+      color: var(--text);
+      border-radius: 3px;
+      padding: 0 3px;
+    }
+    input, button { font-family: inherit; }
+    input::placeholder { color: var(--text3); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg2); }
+    ::-webkit-scrollbar-thumb { background: var(--green-md); border-radius: 3px; }
+
+    /* subtle dot pattern on body */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(circle, #c5b9a8 1px, transparent 1px);
+      background-size: 24px 24px;
+      opacity: 0.18;
+      pointer-events: none;
+      z-index: 0;
+    }
+    #root { position: relative; z-index: 1; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+  const { useState, useMemo } = React;
+
+  const vaccines = [
+    { id: 1,  generic: "Rotavirus vaccine", code: "MLROT",   brand: "Rotarix Oral Suspension (2 doses；自費)",    chinese: "羅特律輪狀病毒疫苗懸液劑(自費)",              note: "2劑",  price: 2700,  staffPrice: 2430,  tags: ["輪狀病毒","腸胃","嬰幼兒"] },
+    { id: 2,  generic: "Rotavirus vaccine", code: "MLROTH",  brand: "RotaTeq Vaccine (3 doses；自費)",            chinese: "輪達停口服活性5價輪狀病毒疫苗(自費)",          note: "3劑",  price: 2000,  staffPrice: 1800,  tags: ["輪狀病毒","腸胃","嬰幼兒"] },
+    { id: 3,  generic: "Varicella Zoster virus vaccine, recombinant", code: "MIZOSC", brand: "Shingrix Herpes Zoster Vaccine(自費)", chinese: "欣剋疹帶狀皰疹疫苗(自費)", note: "", price: 8680, staffPrice: 7812, tags: ["帶狀皰疹","shingles","成人"] },
+    { id: 4,  generic: "Varicella Vaccine(自費)", code: "MIVAR2", brand: "Varivax vaccine (自費)", chinese: "伏痘敏活性水痘疫苗(自費)", note: "", price: 1750, staffPrice: 1400, tags: ["水痘","chickenpox"] },
+    { id: 5,  generic: "Tdap Vaccine (自費)", code: "MIDPTH", brand: "Boostrix Vaccine (自費)", chinese: "補施追疫苗(自費)", note: "", price: 1800, staffPrice: 1440, tags: ["破傷風","白喉","百日咳","Tdap","追加"] },
+    { id: 6,  generic: "Pneumococcal 13-valent Conjugate Vaccine Inj.", code: "MIPVEH", brand: "Prevenar 13 INJ (自費疫苗)", chinese: "沛兒肺炎鏈球菌十三價結合型(自費疫苗)", note: "13價", price: 3800, staffPrice: 3420, tags: ["肺炎","肺炎鏈球菌","PCV13"] },
+    { id: 7,  generic: "Pneumococcal 20-valent Conjugate Vaccine Inj.", code: "MIPVEM", brand: "Prevenar 20 INJ (自費疫苗)", chinese: "沛兒肺炎鏈球菌二十價結合型(自費疫苗)", note: "20價", price: 4350, staffPrice: 3915, tags: ["肺炎","肺炎鏈球菌","PCV20"] },
+    { id: 8,  generic: "Pneumococcal Vaccine Inj", code: "MIPNE", brand: "Pneumovax 23 (自費疫苗)", chinese: "紐蒙肺多價性肺炎雙球菌疫苗", note: "23價", price: 1500, staffPrice: 1275, tags: ["肺炎","肺炎鏈球菌","PPSV23"] },
+    { id: 9,  generic: "Measles, Mumps & Rubella Virus Vaccine", code: "MIMMR1", brand: "M-M-R II (自費)", chinese: "痲疹、腮腺炎&德國麻疹三種混合疫苗注射劑(自費)", note: "", price: 900, staffPrice: 720, tags: ["麻疹","腮腺炎","德國麻疹","MMR"] },
+    { id: 10, generic: "Meningococcal Group B Vaccine", code: "MIMEN1", brand: "Bexsero Meningococcal Group B Vaccine", chinese: "必思諾B型腦膜炎雙球菌疫苗", note: "", price: 6500, staffPrice: 5850, tags: ["腦膜炎","腦膜炎雙球菌"] },
+    { id: 11, generic: "DTaP-IPV-Hib-HBV Inj. (六合一自費)", code: "MIIFH", brand: "Hexaxim Vaccine (六合一自費)", chinese: "哈多星六合一疫苗", note: "六合一", price: 1900, staffPrice: 1710, tags: ["六合一","嬰幼兒","破傷風","白喉","百日咳"] },
+    { id: 12, generic: "HPV 9-valent Vaccine", code: "MIHPVH", brand: "GARDASIL 9 Vaccine (九價-自費)", chinese: "嘉喜(九價-自費)", note: "九價", price: 6000, staffPrice: 5400, tags: ["HPV","人類乳突病毒","子宮頸癌","九價"] },
+    { id: 13, generic: "Hepatitis B Vaccine, Recombinant DNA(自費)", code: "MIHBVG", brand: "Engerix-B Vaccine (自費)", chinese: "安在時Ｂ型肝炎疫苗(自費)", note: "", price: 450, staffPrice: 405, tags: ["B型肝炎","肝炎","HBV"] },
+    { id: 14, generic: "Hepatitis A 720 Elisa Vaccine", code: "MIHAV", brand: "Havrix 720 Junior (自費-兒童)", chinese: "新赫寶克(自費-兒童)", note: "兒童", price: 1200, staffPrice: 1080, tags: ["A型肝炎","肝炎","HAV","兒童"] },
+    { id: 15, generic: "Hepatitis A 1,440 Elisa Vaccine", code: "MIHAVH", brand: "Havrix Inj. (自費-成人)", chinese: "新赫寶克(自費-成人)", note: "成人", price: 1800, staffPrice: 1620, tags: ["A型肝炎","肝炎","HAV","成人"] },
+    { id: 16, generic: "Live, attenuated Japanese encephalitis vaccine", code: "MIJECV3", brand: "Imojev Vaccine(自費)", chinese: "巴斯德細胞型日本腦炎活性減毒疫苗(自費)", note: "", price: 3600, staffPrice: 2880, tags: ["日本腦炎","腦炎"] },
+    { id: 17, generic: "Palivizumab Injection", code: "MIPLV", brand: "Synagis Inj", chinese: "西那吉斯凍晶注射劑", note: "", price: 11398, staffPrice: 9689, tags: ["RSV","早產兒","呼吸道融合病毒","palivizumab"] },
+    { id: 18, generic: "Influenza Virus Vaccine (四價自費)", code: "MIVAXF", brand: "Fluarix Tetra (四價自費)", chinese: "伏適流疫苗(四價自費)", note: "四價", price: 1000, staffPrice: 800, tags: ["流感","流行性感冒","flu","四價"] },
+    { id: 19, generic: "Inactivated Enterovirus 71 Vaccine", code: "MIIEV1", brand: "EnVAX-A71 Vaccine", chinese: "安拓伏腸病毒71型疫苗 (國光)", note: "國光", price: 4000, staffPrice: 3800, tags: ["腸病毒","EV71","手足口病"] },
+    { id: 20, generic: "Inactivated EV71 Vaccine", code: "MIIEV",  brand: "Envacgen Vaccine", chinese: "高端腸病毒71型疫苗", note: "高端", price: 4300, staffPrice: 4085, tags: ["腸病毒","EV71","手足口病"] },
+    { id: 21, generic: "RSVPreF3 Antigen Vaccine (自費)", code: "MIRSV",  brand: "Arexvy RSV Vaccine", chinese: "欣剋融呼吸道融合病毒疫苗", note: "", price: 7680, staffPrice: 6912, tags: ["RSV","呼吸道融合病毒","成人"] },
+    { id: 22, generic: "RSV preF A and B Vaccine (自費)", code: "MIRSV1", brand: "Abrysvo RSV Vaccine (自費)", chinese: "艾沛兒呼吸道融合病毒疫苗 (自費)", note: "", price: 7680, staffPrice: 6912, tags: ["RSV","呼吸道融合病毒"] },
+    { id: 23, generic: "Nirsevimab Inj. 100mg (自費)", code: "MINIRH", brand: "Beyfortus Inj.(100mg)", chinese: "樂唯初注射劑(100mg/ml)", note: "100mg", price: 16000, staffPrice: 15200, tags: ["RSV","呼吸道融合病毒","嬰兒","單株抗體"] },
+  ];
+
+  const categories = ["全部","嬰幼兒","成人","肺炎","肝炎","RSV","腸病毒","流感"];
+
+  function hl(text, q) {
+    if (!q) return text;
+    const i = text.toLowerCase().indexOf(q.toLowerCase());
+    if (i === -1) return text;
+    return <>{text.slice(0,i)}<mark>{text.slice(i,i+q.length)}</mark>{text.slice(i+q.length)}</>;
+  }
+
+  /* ── Header ── */
+  function Header() {
+    return (
+      <div style={{
+        background: "var(--green)",
+        padding: "28px 24px 22px",
+        textAlign: "center",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        {/* decorative leaf circles */}
+        <div style={{ position:"absolute", top:-30, right:-30, width:120, height:120, borderRadius:"50%", background:"rgba(255,255,255,0.07)" }} />
+        <div style={{ position:"absolute", bottom:-20, left:-20, width:80, height:80, borderRadius:"50%", background:"rgba(255,255,255,0.05)" }} />
+        <div style={{ fontSize:"11px", letterSpacing:"4px", color:"var(--green-md)", marginBottom:"6px", textTransform:"uppercase", position:"relative" }}>
+          自費疫苗 · 2026.05.14 更新
+        </div>
+        <h1 style={{ margin:0, fontSize:"26px", fontWeight:"700", color:"#fff", letterSpacing:"1px", position:"relative" }}>
+          💉 疫苗查詢系統
+        </h1>
+        <p style={{ marginTop:"6px", fontSize:"13px", color:"rgba(255,255,255,0.65)", position:"relative" }}>
+          輸入關鍵字搜尋疫苗名稱、商品名或疾病類型
+        </p>
+      </div>
+    );
+  }
+
+  /* ── Tab Bar ── */
+  function TabBar({ active, onChange }) {
+    const tabs = [
+      { id:"search", label:"🔍 關鍵字查詢" },
+      { id:"table",  label:"📋 完整價目表" },
+    ];
+    return (
+      <div style={{ display:"flex", background:"var(--surface)", borderBottom:"2px solid var(--border)" }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => onChange(t.id)} style={{
+            flex:1, padding:"13px 0", border:"none",
+            borderBottom: active===t.id ? "3px solid var(--green)" : "3px solid transparent",
+            background:"transparent",
+            color: active===t.id ? "var(--green)" : "var(--text3)",
+            fontSize:"14px", fontWeight: active===t.id ? "700" : "400",
+            cursor:"pointer", transition:"all 0.2s",
+          }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  /* ── Search Tab ── */
+  function SearchTab() {
+    const [query,    setQuery]    = useState("");
+    const [category, setCategory] = useState("全部");
+    const [selected, setSelected] = useState(null);
+
+    const results = useMemo(() => {
+      const q = query.trim().toLowerCase();
+      return vaccines.filter(v => {
+        const mc = category==="全部" || v.tags.includes(category);
+        const mq = !q ||
+          v.chinese.toLowerCase().includes(q) ||
+          v.brand.toLowerCase().includes(q) ||
+          v.generic.toLowerCase().includes(q) ||
+          v.code.toLowerCase().includes(q) ||
+          v.tags.some(t => t.toLowerCase().includes(q));
+        return mc && mq;
+      });
+    }, [query, category]);
+
+    return (
+      <div style={{ padding:"20px 16px", maxWidth:"680px", margin:"0 auto" }}>
+
+        {/* Search input */}
+        <div style={{ position:"relative", marginBottom:"14px" }}>
+          <span style={{ position:"absolute", left:"14px", top:"50%", transform:"translateY(-50%)", fontSize:"17px", opacity:0.45 }}>🔍</span>
+          <input type="text"
+            placeholder="搜尋：如「肺炎」、「HPV」、「流感」、「腸病毒」…"
+            value={query}
+            onChange={e => { setQuery(e.target.value); setSelected(null); }}
+            style={{
+              width:"100%", padding:"13px 16px 13px 44px",
+              borderRadius:"12px",
+              border:"1.5px solid var(--border)",
+              background:"var(--surface)",
+              color:"var(--text)", fontSize:"15px", outline:"none",
+              boxShadow:"0 1px 4px rgba(90,138,106,0.08)",
+              transition:"border 0.2s, box-shadow 0.2s",
+            }}
+            onFocus={e=>{ e.target.style.borderColor="var(--green)"; e.target.style.boxShadow="0 0 0 3px rgba(90,138,106,0.12)"; }}
+            onBlur={e=>{ e.target.style.borderColor="var(--border)"; e.target.style.boxShadow="0 1px 4px rgba(90,138,106,0.08)"; }}
+          />
+        </div>
+
+        {/* Category chips */}
+        <div style={{ display:"flex", gap:"8px", flexWrap:"wrap", marginBottom:"18px" }}>
+          {categories.map(cat => (
+            <button key={cat} onClick={() => { setCategory(cat); setSelected(null); }} style={{
+              padding:"5px 14px", borderRadius:"20px",
+              border: category===cat ? "1.5px solid var(--green)" : "1.5px solid var(--border)",
+              background: category===cat ? "var(--green)" : "var(--surface)",
+              color: category===cat ? "#fff" : "var(--text2)",
+              fontSize:"13px", cursor:"pointer",
+              fontWeight: category===cat ? "600" : "400",
+              transition:"all 0.15s",
+              boxShadow: category===cat ? "0 2px 6px rgba(90,138,106,0.25)" : "none",
+            }}>
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Count */}
+        <div style={{ fontSize:"12px", color:"var(--text3)", marginBottom:"12px", letterSpacing:"0.3px" }}>
+          找到 <strong style={{ color:"var(--green)" }}>{results.length}</strong> 項結果
+        </div>
+
+        {/* Cards */}
+        {results.length === 0 ? (
+          <div style={{ textAlign:"center", padding:"48px 16px", color:"var(--text3)", fontSize:"15px" }}>
+            找不到符合的疫苗，請嘗試其他關鍵字
+          </div>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
+            {results.map(v => {
+              const open = selected?.id === v.id;
+              return (
+                <div key={v.id} onClick={() => setSelected(open ? null : v)} style={{
+                  borderRadius:"14px",
+                  border: open ? "1.5px solid var(--green)" : "1.5px solid var(--border)",
+                  background: open ? "var(--green-lt)" : "var(--surface)",
+                  padding:"14px 16px", cursor:"pointer",
+                  boxShadow: open
+                    ? "0 2px 12px rgba(90,138,106,0.15)"
+                    : "0 1px 3px rgba(0,0,0,0.05)",
+                  transition:"all 0.18s",
+                }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:"8px" }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:"15px", fontWeight:"700", color:"var(--text)", marginBottom:"3px", lineHeight:"1.4" }}>
+                        {hl(v.chinese, query)}
+                        {v.note && (
+                          <span style={{ marginLeft:"8px", fontSize:"11px", padding:"2px 8px", borderRadius:"10px", background:"var(--green)", color:"#fff", verticalAlign:"middle" }}>{v.note}</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize:"13px", color:"var(--text3)" }}>{hl(v.brand, query)}</div>
+                    </div>
+                    <div style={{ textAlign:"right", flexShrink:0 }}>
+                      <div style={{ fontSize:"20px", fontWeight:"800", color:"var(--amber)", letterSpacing:"-0.5px" }}>
+                        ${v.price.toLocaleString()}
+                      </div>
+                      <div style={{ fontSize:"11px", color:"var(--text3)" }}>職員 ${v.staffPrice.toLocaleString()}</div>
+                    </div>
+                  </div>
+
+                  {open && (
+                    <div style={{ marginTop:"14px", paddingTop:"14px", borderTop:"1.5px dashed var(--green-md)" }}>
+                      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"13px" }}>
+                        <tbody>
+                          {[
+                            ["學名",   v.generic],
+                            ["藥品碼", v.code],
+                            ["商品名", v.brand],
+                            ["中文名", v.chinese],
+                            ["一般自費", `NT$ ${v.price.toLocaleString()}`],
+                            ["職員優惠", `NT$ ${v.staffPrice.toLocaleString()}`],
+                          ].map(([label,val]) => (
+                            <tr key={label}>
+                              <td style={{ padding:"5px 0", color:"var(--text3)", width:"76px", verticalAlign:"top", fontWeight:"500" }}>{label}</td>
+                              <td style={{ padding:"5px 0", color:"var(--text)" }}>{val}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div style={{ marginTop:"10px", display:"flex", flexWrap:"wrap", gap:"6px" }}>
+                        {v.tags.map(t => (
+                          <span key={t} style={{ fontSize:"11px", padding:"3px 9px", borderRadius:"10px", background:"var(--bg2)", color:"var(--text2)", border:"1px solid var(--border)" }}>{t}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div style={{ marginTop:"28px", padding:"12px 16px", borderRadius:"10px", background:"var(--amber-lt)", border:"1px solid #e8c98a", fontSize:"12px", color:"var(--text2)", lineHeight:"1.6" }}>
+          ⚠️ 以上價格僅含疫苗藥品費用，不含掛號費、注射技術費、處置費等其他相關費用。
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Table Tab ── */
+  function TableTab() {
+    const cols = ["學名","藥品碼","商品名","中文名","一般價(NT$)","職員價(NT$)"];
+    return (
+      <div style={{ padding:"20px 16px" }}>
+        <div style={{ fontSize:"11px", color:"var(--green)", letterSpacing:"2px", marginBottom:"14px", textTransform:"uppercase", fontWeight:"600" }}>
+          自費疫苗費用一覽表 · 2026.05.14 更新 · 共 {vaccines.length} 項
+        </div>
+        <div style={{ overflowX:"auto", borderRadius:"14px", border:"1.5px solid var(--border)", boxShadow:"0 2px 8px rgba(0,0,0,0.06)" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12.5px", minWidth:"720px" }}>
+            <thead>
+              <tr style={{ background:"var(--green)", borderBottom:"2px solid var(--green)" }}>
+                {cols.map(c => (
+                  <th key={c} style={{
+                    padding:"12px 10px",
+                    textAlign: c.includes("價") ? "right" : "left",
+                    color:"#fff", fontWeight:"600",
+                    letterSpacing:"0.5px", whiteSpace:"nowrap",
+                  }}>{c}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {vaccines.map((v,i) => (
+                <tr key={v.id} style={{
+                  borderBottom:"1px solid var(--border)",
+                  background: i%2===0 ? "var(--surface)" : "var(--surface2)",
+                  transition:"background 0.15s",
+                }}
+                  onMouseEnter={e => e.currentTarget.style.background="var(--green-lt)"}
+                  onMouseLeave={e => e.currentTarget.style.background = i%2===0 ? "var(--surface)" : "var(--surface2)"}
+                >
+                  <td style={{ padding:"10px", color:"var(--text3)", fontSize:"11px", lineHeight:"1.5", maxWidth:"180px" }}>{v.generic}</td>
+                  <td style={{ padding:"10px", color:"var(--green)", fontFamily:"monospace", whiteSpace:"nowrap", fontWeight:"600" }}>{v.code}</td>
+                  <td style={{ padding:"10px", color:"var(--text)", lineHeight:"1.5" }}>{v.brand}</td>
+                  <td style={{ padding:"10px", color:"var(--text)", lineHeight:"1.5" }}>{v.chinese}</td>
+                  <td style={{ padding:"10px", color:"var(--amber)", fontWeight:"700", whiteSpace:"nowrap", textAlign:"right" }}>{v.price.toLocaleString()}</td>
+                  <td style={{ padding:"10px", color:"var(--text2)", whiteSpace:"nowrap", textAlign:"right" }}>{v.staffPrice.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ marginTop:"16px", padding:"12px 14px", borderRadius:"10px", background:"var(--amber-lt)", border:"1px solid #e8c98a", fontSize:"12px", color:"var(--text2)", lineHeight:"1.6" }}>
+          ⚠️ 價格僅含疫苗藥品費用，不含掛號費、注射技術費、處置費等其他相關費用。
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Root App ── */
+  function App() {
+    const [tab, setTab] = useState("search");
+    return (
+      <div style={{ minHeight:"100vh" }}>
+        <Header />
+        <TabBar active={tab} onChange={setTab} />
+        {tab==="search" ? <SearchTab /> : <TableTab />}
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
